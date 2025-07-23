@@ -1,0 +1,83 @@
+# docker-compose.yml
+# Docker Compose configuration for ecDNA repeat analysis
+
+version: '3.8'
+
+services:
+  ecdna-analysis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ecdna-analysis:latest
+    container_name: ecdna-repeat-analysis
+    volumes:
+      # Mount your data directory
+      - ./data:/data:ro
+      # Mount output directory
+      - ./output:/app/output:rw
+      # Optional: mount custom genome files
+      - ./genomes:/app/genomes:ro
+    environment:
+      # Set resource limits
+      - OMP_NUM_THREADS=4
+      - R_MAX_VSIZE=8Gb
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4.0'
+        reservations:
+          memory: 2G
+          cpus: '2.0'
+    # Default command - override with docker-compose run
+    command: ["--help"]
+    
+  # Development version with additional tools
+  ecdna-analysis-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development  # If you add multi-stage build
+    image: ecdna-analysis:dev
+    container_name: ecdna-analysis-dev
+    volumes:
+      - ./data:/data:ro
+      - ./output:/app/output:rw
+      - ./scripts:/app/scripts:rw  # Mount development scripts
+      - ./logs:/app/logs:rw
+    environment:
+      - R_MAX_VSIZE=16Gb
+      - RSTUDIO_SESSION_TIMEOUT=0
+    ports:
+      - "8787:8787"  # RStudio Server (if added)
+    command: ["--help"]
+
+# Named volumes for persistent data
+volumes:
+  analysis_cache:
+    driver: local
+  genome_data:
+    driver: local
+
+# Networks
+networks:
+  ecdna_network:
+    driver: bridge
+
+---
+# docker-compose.override.yml (for local development)
+version: '3.8'
+
+services:
+  ecdna-analysis:
+    # Override for development
+    volumes:
+      # Add source code mounting for development
+      - .:/app/src:ro
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=debug
+    # Enable interactive mode
+    stdin_open: true
+    tty: true
